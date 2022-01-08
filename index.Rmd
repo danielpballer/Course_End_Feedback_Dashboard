@@ -1,0 +1,146 @@
+---
+title: "Course End Feedback"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    source_code: embed
+    navbar:
+      - { title: "Created by: Daniel Baller", icon: "fa-github", href: "https://github.com/danielpballer"  }
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(gt)
+library(knitr)
+library(glue)
+library(tidytext)
+library(tm)
+library(syuzhet)
+library(tidytext)
+library(DT)
+```
+
+```{r Reading in data}
+num_data = read_csv("MATH-SurveyData_USMA-WP_2021_2021-2_Standard_Numerics-IDs+SECs.csv")
+comment_data = read_csv("MATH-SurveyData_USMA-WP_2021_2021-2_Standard_Comments-IDs+SECs.csv") 
+
+comment_data = comment_data %>% 
+    mutate(question = iconv(question, "UTF-8", "UTF-8",sub='')) %>%
+    mutate(response = iconv(response, "UTF-8", "UTF-8",sub=''))
+```
+
+```{r adding names to the quantitative questions}
+#adding names to the questions i.e. Question 1...Question n and keeping the same names across courses
+
+#finding the minmum number of questions asked to id the standard questions asked for every course
+num_data = num_data %>% 
+  distinct(crs_number, question) %>% 
+  group_by(crs_number) %>% 
+  mutate(num_quest = max(row_number())) %>% 
+  as.data.frame() %>% 
+  ungroup() %>% 
+  filter(num_quest == min(num_quest)) %>% 
+  #giving the standard questions names Question 1 .... Question n
+  head(.$num_quest[1]) %>% 
+  mutate(Question_num = paste("Question",row_number())) %>% 
+  #adding the qurestion numbers to the dataset
+  select(question, Question_num) %>% 
+  right_join(., num_data) %>% 
+  #numbering the course specific questions
+  group_by(crs_number) %>% 
+  arrange(Question_num) %>% 
+  distinct(question, .keep_all = T) %>% 
+  mutate(Question_num = case_when(is.na(Question_num)==T ~ paste("Question", row_number()),
+            TRUE~Question_num)) %>% 
+  ungroup() %>% 
+  select(crs_number, question, Question_num) %>% 
+  #adding all question names 
+  right_join(.,num_data, by = c("crs_number", "question")) %>% 
+  mutate(Question_num = fct_reorder(Question_num,
+                                    parse_number(Question_num)))
+```
+
+```{r adding names to free text questions}
+#finding the minmum number of questions asked to id the standard questions asked for every course
+comment_data = comment_data %>% 
+  distinct(crs_number, question) %>% 
+  group_by(crs_number) %>% 
+  mutate(num_quest = max(row_number())) %>% 
+  as.data.frame() %>% 
+  ungroup() %>% 
+  filter(num_quest == min(num_quest)) %>% 
+  #giving the standard questions names Question 1 .... Question n
+  head(.$num_quest[1]) %>% 
+  mutate(Question_num = paste("Question",row_number())) %>% 
+  #adding the qurestion numbers to the dataset
+  select(question, Question_num) %>% 
+  right_join(., comment_data) %>% 
+  #numbering the course specific questions
+  group_by(crs_number) %>% 
+  arrange(Question_num) %>% 
+  distinct(question, .keep_all = T) %>% 
+  mutate(Question_num = case_when(is.na(Question_num)==T ~ paste("Question", row_number()),
+            TRUE~Question_num)) %>% 
+  ungroup() %>% 
+  select(crs_number, question, Question_num) %>% 
+  #adding all question names 
+  right_join(.,comment_data, by = c("crs_number", "question")) %>% 
+  mutate(Question_num = fct_reorder(Question_num,
+                                    parse_number(Question_num)))
+```
+
+
+```{r render subpages, include=FALSE}
+# Get all unique course numbers for the subpages
+course <- unique(num_data$crs_number)
+
+# Create variable which stores all subpages outputs
+out = NULL
+
+# Set knitr options to allow duplicate labels (needed for the subpages)
+options(knitr.duplicate.label = 'allow')
+
+# Create temporary environment which we use for knitting subpages.RMD 
+subpage_env <- new.env()
+
+#for loop to run through all of the courses
+for (crs in course) {
+  # Filter data for product group 
+  subpage_data = num_data %>% 
+    filter(crs_number == crs)
+  
+  subpage_comments = comment_data %>% 
+    filter(crs_number == crs)
+  
+  # Assign filtered data and product group to subpage_env 
+  assign("subpage_data", subpage_data, subpage_env)
+  assign("subpage_comments", subpage_comments, subpage_env)
+  assign("course", crs, subpage_env)
+  
+  # Knit subpage.RMD using the subpage_env and add result to out vector
+  out = c(out, knitr::knit_child('subpage.RMD', envir = subpage_env))
+}
+```
+
+`r paste(knitr::knit_child(text = out), collapse = '')`
+
+Negative Comments  
+================================================================================
+
+```{r}
+dataCorpus = Corpus(VectorSource(comment_data$response))
+dataCorpus = tm_map(dataCorpus, content_transformer(tolower))
+dataCorpus = tm_map(dataCorpus, removePunctuation)
+dataCorpus = tm_map(dataCorpus, removeWords, stopwords('english'))
+dataCorpus = tm_map(dataCorpus,stripWhitespace)
+sent<-get_sentiment(dataCorpus$content, method = "afinn")
+
+comment_data %>% add_column(sent) %>% 
+  filter(sent<(-0)) %>% 
+  select(Question_num, question, crs_number, response, sent) %>% 
+  arrange(sent) %>% 
+  datatable()
+```
+

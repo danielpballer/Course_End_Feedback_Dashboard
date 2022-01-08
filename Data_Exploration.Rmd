@@ -1,0 +1,217 @@
+---
+title: "Data Exploration"
+author: "MAJ Daniel Baller"
+date: "1/5/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Loading Packages
+```{r}
+library(tidyverse)
+library(gt)
+library(knitr)
+library(glue)
+library(ggridges)
+```
+
+Reading in data
+```{r}
+num_data = read_csv("MATH-SurveyData_USMA-WP_2021_2021-2_Standard_Numerics-IDs+SECs.csv")
+comment_data = read_csv("MATH-SurveyData_USMA-WP_2021_2021-2_Standard_Comments-IDs+SECs.csv") 
+
+comment_data = comment_data %>% 
+    mutate(question = iconv(question, "UTF-8", "UTF-8",sub='')) %>%
+    mutate(response = iconv(response, "UTF-8", "UTF-8",sub=''))
+```
+ 
+# Quantitative Data
+
+How many questions are asked by each course
+
+```{r}
+num_data %>% 
+  distinct(crs_number, question) %>%  
+  count(crs_number) %>% ungroup() %>% gt()
+```
+
+## What questions are the same
+
+It apears that every course asks 24 standard questions.  Additional questions are then asked and inserted after the 13th standard question and after the 23rd standard question.
+```{r}
+a = num_data %>% filter(crs_number=="MA476" |crs_number=="MA391") %>% 
+  select(crs_number, question) %>% 
+  distinct() %>% 
+  group_by(crs_number) %>% 
+  mutate(rownum = row_number()) %>% 
+  pivot_wider(names_from = crs_number, values_from = question) %>% 
+  mutate(same = case_when(MA476 == MA391~"Yes",
+                          TRUE~"No"))
+``` 
+
+
+```{r}
+#adding names to the questions i.e. Question 1...Question n and keeping the same names across courses
+
+#finding the minmum number of questions asked to id the standard questions asked for every course
+num_data = num_data %>% 
+  distinct(crs_number, question) %>% 
+  group_by(crs_number) %>% 
+  mutate(num_quest = max(row_number())) %>% 
+  as.data.frame() %>% 
+  ungroup() %>% 
+  filter(num_quest == min(num_quest)) %>% 
+  #giving the standard questions names Question 1 .... Question n
+  head(.$num_quest[1]) %>% 
+  mutate(Question_num = paste("Question",row_number())) %>% 
+  #adding the qurestion numbers to the dataset
+  select(question, Question_num) %>% 
+  right_join(., num_data) %>% 
+  #numbering the course specific questions
+  group_by(crs_number) %>% 
+  arrange(Question_num) %>% 
+  distinct(question, .keep_all = T) %>% 
+  mutate(Question_num = case_when(is.na(Question_num)==T ~ paste("Question", row_number()),
+            TRUE~Question_num)) %>% 
+  ungroup() %>% 
+  select(crs_number, question, Question_num) %>% 
+  #adding all question names 
+  right_join(.,num_data, by = c("crs_number", "question")) %>% 
+  mutate(Question_num = fct_reorder(Question_num,
+                                    parse_number(Question_num)))
+
+
+plot_data = num_data %>% filter(Question_num=="Question 4")
+  
+plot_data %>% count(response_descr)
+
+plot_data %>% 
+  ggplot(aes(x = as.factor(response)))+geom_bar()+
+  labs(title = paste(plot_data$question[1]), x = "Response", y = "Count") +
+  scale_x_discrete(breaks = plot_data$response, label=plot_data$response_descr)+
+  #facet_wrap(~crs_number, scales = "free")+
+  theme_classic()
+
+plot_data %>% 
+  ggplot(aes(x = response, y = Question_num))+geom_density_ridges()
+```
+
+
+#Free text data
+
+```{r}
+#how many questions asked by each course.  every course has 4 standard questions
+comment_data %>% 
+  distinct(crs_number, question) %>%  
+  count(crs_number) %>% ungroup() %>% gt()
+
+#standard questions are not necessarially in the same order in the data.
+a = comment_data %>% filter(crs_number=="MA477" |crs_number=="MA104") %>% 
+  select(crs_number, question) %>% 
+  distinct() %>% 
+  group_by(crs_number) %>% 
+  mutate(rownum = row_number()) %>% 
+  pivot_wider(names_from = crs_number, values_from = question) %>% 
+  mutate(same = case_when(MA477 == MA104~"Yes",
+                          TRUE~"No"))
+
+#finding the minmum number of questions asked to id the standard questions asked for every course
+comment_data = comment_data %>% 
+  distinct(crs_number, question) %>% 
+  group_by(crs_number) %>% 
+  mutate(num_quest = max(row_number())) %>% 
+  as.data.frame() %>% 
+  ungroup() %>% 
+  filter(num_quest == min(num_quest)) %>% 
+  #giving the standard questions names Question 1 .... Question n
+  head(.$num_quest[1]) %>% 
+  mutate(Question_num = paste("Question",row_number())) %>% 
+  #adding the qurestion numbers to the dataset
+  select(question, Question_num) %>% 
+  right_join(., comment_data) %>% 
+  #numbering the course specific questions
+  group_by(crs_number) %>% 
+  arrange(Question_num) %>% 
+  distinct(question, .keep_all = T) %>% 
+  mutate(Question_num = case_when(is.na(Question_num)==T ~ paste("Question", row_number()),
+            TRUE~Question_num)) %>% 
+  ungroup() %>% 
+  select(crs_number, question, Question_num) %>% 
+  #adding all question names 
+  right_join(.,comment_data, by = c("crs_number", "question")) %>% 
+  mutate(Question_num = fct_reorder(Question_num,
+                                    parse_number(Question_num)))
+```
+
+
+```{r}
+library(tidytext)
+all_bigrams = comment_data %>% 
+  filter(crs_number=="MA104") %>% 
+  filter(Question_num=="Question 1") %>% 
+  select(response, question) %>% 
+  drop_na()%>% 
+  unnest_tokens(bigram, response, token = "ngrams", n = 2) %>% 
+  # Split the bigrams into two words so we can remove stopwords
+  separate(bigram, c("word1", "word2"), sep = " ") %>% 
+   filter(!word1 %in% stop_words$word,
+          !word2 %in% stop_words$word
+          ) %>% 
+   # filter(!word1 %in% c("teams", "remote", "spring"),
+   #        !word2 %in% c("collaborate", "teams")
+   #        )%>%
+  # Put the two word columns back together
+  unite(bigram, word1, word2, sep = " ") %>% 
+  filter(bigram!="NA NA")
+
+top_bigrams <- all_bigrams %>% 
+  # Count the frequency of each bigram
+  count(bigram, question, sort = TRUE) %>% 
+  # Keep top 15 in each play
+  top_n(10) %>% 
+  # Make the bigrams an ordered factor so they plot in order
+  mutate(bigram = fct_inorder(bigram))
+
+ggplot(top_bigrams, aes(y = fct_rev(bigram), x = n)) + 
+  geom_col() + 
+  guides(fill = "none") +
+  labs(title = paste(top_bigrams$question[1]), x = "Count", y = NULL) +
+  theme_bw()
+```
+
+```{r}
+library(tm)
+library(syuzhet)
+library(tidytext)
+library(DT)
+dataq1 = comment_data %>% 
+  filter(Question_num=="Question 6")
+
+dataCorpus = Corpus(VectorSource(comment_data$response))
+dataCorpus = tm_map(dataCorpus, content_transformer(tolower))
+dataCorpus = tm_map(dataCorpus, removePunctuation)
+dataCorpus = tm_map(dataCorpus, removeWords, stopwords('english'))
+dataCorpus = tm_map(dataCorpus,stripWhitespace)
+sent<-get_sentiment(dataCorpus$content, method = "afinn")
+
+comment_data %>% add_column(sent) %>% 
+  filter(sent<(-0)) %>% 
+  select(Question_num, question, crs_number, response, sent) %>% 
+  arrange(sent) %>% 
+  datatable()
+a
+a = comment_data %>% 
+  filter(Question_num=="Question 1") %>% 
+  mutate(response_num = row_number()) %>% 
+  unnest_tokens(word, response) %>% 
+  inner_join(get_sentiments("afinn")) %>% 
+  group_by(response_num) %>% 
+  mutate(sentiment = sum(value))
+  right_join()
+  
+ a =  dataq1 %>% select(response)
+```
+

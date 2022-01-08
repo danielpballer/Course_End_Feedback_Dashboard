@@ -1,0 +1,69 @@
+`r paste0('# ', course, '{data-navmenu="Course"}')`
+
+`r shiny::tags$h1(course, style="text-align:center")`
+
+Quantitative assessment {.tabset}
+-----------------------------------------------------------------------
+
+```{r render subpages, include=FALSE}
+# Get all unique question names for the tabset
+quest <- sort(unique(subpage_data$Question_num))
+    
+# Create variable which stores all subpage tabset outputs
+out2 = NULL
+
+# Set knitr options to allow duplicate labels (needed for the subpages)
+options(knitr.duplicate.label = 'allow')
+
+# Create temporary environment which we use for knitting subpages.RMD for the tabset
+subpage_env2 <- new.env()
+
+#for loop for creating a plot for each question
+for (q in quest) {
+  # Filter data for product group 
+  subpage_data2 <- subpage_data %>% 
+    filter(Question_num == q)
+  
+  # Assign filtered data and product group to subpage_env2 
+  assign("subpage_data2", subpage_data2, subpage_env2)
+  assign("quest", q, subpage_env2)
+  
+  # Knit subpage.RMD using the subpage_env and add result to out vector
+  out2 = c(out2, knitr::knit_child('subpage2.RMD', envir = subpage_env2))
+}
+```
+
+`r paste(knitr::knit_child(text = out2), collapse = '')`
+
+Qualitative assessment {.tabset}
+-----------------------------------------------------------------------
+
+```{r render subpages, include=FALSE}
+# Get all unique question names for the tabset
+quest_comment <- sort(unique(subpage_comments$Question_num))
+    
+# Create variable which stores all subpage tabset outputs
+out3 = NULL
+
+# Set knitr options to allow duplicate labels (needed for the subpages)
+options(knitr.duplicate.label = 'allow')
+
+# Create temporary environment which we use for knitting subpages.RMD for the tabset
+subpage_env3 <- new.env()
+
+#for loop for creating a plot for each question
+for (q_comment in quest_comment) {
+  # Filter data for product group 
+  subpage_comment3 <- subpage_comments %>% 
+    filter(Question_num == q_comment)
+  
+  # Assign filtered data and product group to subpage_env3 
+  assign("subpage_comment3", subpage_comment3, subpage_env3)
+  assign("quest_comment", q_comment, subpage_env3)
+  
+  # Knit subpage.RMD using the subpage_env and add result to out vector
+  out3 = c(out3, knitr::knit_child('subpage3.RMD', envir = subpage_env3))
+}
+```
+
+`r paste(knitr::knit_child(text = out3), collapse = '')`
