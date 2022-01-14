@@ -7,7 +7,7 @@ Quantitative assessment {.tabset}
 
 ```{r render subpages, include=FALSE}
 # Get all unique question names for the tabset
-quest <- sort(unique(subpage_data$Question_num))
+quest <- sort(unique(subpage_data$Question_num)) 
     
 # Create variable which stores all subpage tabset outputs
 out2 = NULL

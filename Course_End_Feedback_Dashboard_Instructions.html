@@ -210,7 +210,7 @@ slide:not(.current) .plotly.html-widget{
 <p><font size="4.5"></p>
 
 <ul>
-<li><p><code>index.rmd</code> contains the main structure of the dashboard. This page has multiple for loops to dynamically create the pages and tabsets of the dashboard. Each for loop starts a new environment and runs a different <code>.rmd</code> to create the plots, pages, and tabsets. This file also creates the interactive html tables for positive and negative free text responses.</p></li>
+<li><p><code>Dashboard.rmd</code> contains the main structure of the dashboard. This page has multiple for loops to dynamically create the pages and tabsets of the dashboard. Each for loop starts a new environment and runs a different <code>.rmd</code> to create the plots, pages, and tabsets. This file also creates the interactive html tables for positive and negative free text responses.</p></li>
 <li><p><code>subpage_dept.rmd</code> creates the department level plots for each department level question as a tabset on the landing page.</p></li>
 <li><p><code>subpage.rmd</code> creates a new page for each course in the department. Two for loops on this page will create new environments to run <code>subpage2.rmd</code> and <code>subpage3.rmd</code> which will create the plots for each course.</p></li>
 <li><p><code>subpage2.rmd</code> creates the bar plots of each likert style question for a given course. Each plot is built on a new tabset.</p></li>
@@ -223,7 +223,7 @@ slide:not(.current) .plotly.html-widget{
 
 <p><font size="4.5"></p>
 
-<p>To run the code only three lines in the <code>index.rmd</code> file need to be updated.</p>
+<p>To run the code only three lines in the <code>Dashboard.rmd</code> file need to be updated.</p>
 
 <ol>
 <li>Line 27: update the name of the numeric (Likert) report file. (if you delete the file name that is in the document and then hit <code>tab</code> while your cursor is between the &quot;&quot; it will bring up a list of all files in the folder that you can select from)</li>
