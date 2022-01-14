@@ -5,7 +5,7 @@
 all_bigrams = subpage_comment3 %>% 
   select(response, question) %>% 
   drop_na()%>% 
-  unnest_tokens(bigram, response, token = "ngrams", n = 2) %>% 
+  unnest_tokens(bigram, response, token = "ngrams", n = 2) %>%  
   # Split the bigrams into two words so we can remove stopwords
   separate(bigram, c("word1", "word2"), sep = " ") %>% 
    filter(!word1 %in% stop_words$word,

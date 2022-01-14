@@ -8,5 +8,5 @@ subpage_data2 %>%
        y = "Count") +
   scale_x_discrete(breaks = subpage_data2$response,
                    label=subpage_data2$response_descr)+
-  theme_classic()
+  theme_classic() 
 ```

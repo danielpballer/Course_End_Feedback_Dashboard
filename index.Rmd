@@ -1,5 +1,5 @@
 ---
-title: "Course End Feedback"
+title: "Course End Feedback Dashboard"
 output: 
   flexdashboard::flex_dashboard:
     orientation: columns
@@ -23,9 +23,16 @@ library(DT)
 ```
 
 ```{r Reading in data}
-num_data = read_csv("MATH-SurveyData_USMA-WP_2021_2021-2_Standard_Numerics-IDs+SECs.csv")
-comment_data = read_csv("MATH-SurveyData_USMA-WP_2021_2021-2_Standard_Comments-IDs+SECs.csv") 
+#update the name of the file containing numerical responses (likert questions)
+num_data = read_csv("SurveyData_USMA-WP_2021_2022-1_Standard_Numerics-IDs+SECs.csv")
 
+#update the name of the file containing free text responses
+comment_data = read_csv("SurveyData_USMA-WP_2021_2022-1_Standard_Comments-IDs+SECs.csv") 
+
+#How many standard questions are asked department wide
+standard_quest = 16
+
+#removing non UTF-8 characters from the data
 comment_data = comment_data %>% 
     mutate(question = iconv(question, "UTF-8", "UTF-8",sub='')) %>%
     mutate(response = iconv(response, "UTF-8", "UTF-8",sub=''))
@@ -63,6 +70,7 @@ num_data = num_data %>%
 ```
 
 ```{r adding names to free text questions}
+#Adding names to free text questions  
 #finding the minmum number of questions asked to id the standard questions asked for every course
 comment_data = comment_data %>% 
   distinct(crs_number, question) %>% 
@@ -92,7 +100,58 @@ comment_data = comment_data %>%
 ```
 
 
-```{r render subpages, include=FALSE}
+Department Overview
+================================================================================
+
+Row {.tabset}
+--------------------------------------------------------------------------------
+
+```{r render subpages department, include = FALSE}
+#adding the average by course and question to each observation
+plot_data = num_data %>% 
+  filter(response>0) %>% 
+  group_by(crs_number, Question_num) %>% 
+  summarise(average = mean(response), number = n()) %>% 
+  right_join(num_data, by = c("crs_number", "Question_num")) %>%
+  filter(response>0) %>% 
+  ungroup() %>% 
+  mutate(ordering_num = parse_number(crs_number))
+  
+#creating a vector of question names for the tabs on the landing page
+dept_quest <- sort(unique(plot_data$Question_num))
+#only selecting standard (department wide) questions
+dept_quest = dept_quest[1:standard_quest]
+
+#paring down the data to only contain responses to department wide questions
+plot_data = plot_data %>% filter(Question_num %in% dept_quest)
+
+# Create variable which stores all subpages outputs
+out_dept = NULL
+
+# Set knitr options to allow duplicate labels (needed for the subpages)
+options(knitr.duplicate.label = 'allow')
+
+# Create temporary environment which we use for knitting subpage_dept.RMD 
+subpage_env_dept <- new.env()
+
+#for loop for creating a plot for each question
+for (q_dept in dept_quest) {
+  # Filter data for question 
+  plot_data2 <- plot_data %>% 
+    filter(Question_num == q_dept)
+  
+  # Assign filtered data and product group to subpage_env_dept 
+  assign("plot_data2", plot_data2, subpage_env_dept)
+  assign("dept_quest", q_dept, subpage_env_dept)
+  
+  # Knit subpage.RMD using the subpage_env and add result to out vector
+  out_dept = c(out_dept, knitr::knit_child('subpage_dept.RMD', envir = subpage_env_dept))
+}
+```
+
+`r paste(knitr::knit_child(text = out_dept), collapse = '')`
+
+```{r render subpages by course, include=FALSE}
 # Get all unique course numbers for the subpages
 course <- unique(num_data$crs_number)
 
@@ -130,17 +189,45 @@ Negative Comments
 ================================================================================
 
 ```{r}
+#Creating the corpus, a list where each item is one survey response
 dataCorpus = Corpus(VectorSource(comment_data$response))
+#the folloing lines change each response to lower case, remove punctuation, remove stop words, and whitespace
 dataCorpus = tm_map(dataCorpus, content_transformer(tolower))
 dataCorpus = tm_map(dataCorpus, removePunctuation)
 dataCorpus = tm_map(dataCorpus, removeWords, stopwords('english'))
-dataCorpus = tm_map(dataCorpus,stripWhitespace)
+dataCorpus = tm_map(dataCorpus, stripWhitespace)
+#Calculating the overall sentiment of each response
 sent<-get_sentiment(dataCorpus$content, method = "afinn")
 
-comment_data %>% add_column(sent) %>% 
-  filter(sent<(-0)) %>% 
-  select(Question_num, question, crs_number, response, sent) %>% 
-  arrange(sent) %>% 
-  datatable()
+#adding sentiment scores and filtering selecting only the columns we need
+comment_data2 = comment_data %>% add_column(sent) %>%
+  select(Question_num,question,crs_number,response,sent) %>% 
+  rename("Question Number" = Question_num, Question = question, Course = crs_number, Response = response, "Sentiment Score" = sent)
+  
+#filtering for responses with overall negative sentiment and creating the datatable.
+comment_data2 %>% 
+  filter(sent<(0)) %>% 
+  arrange(`Sentiment Score`) %>% 
+  datatable(extensions = 'Buttons', options = list(
+    dom = 'Blfrtip',
+    buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+    lengthMenue = list( c(10, 25, 50, 100, -1), c(10, 25, 50, 100, "All") )
+  )
+)
 ```
 
+Positive Comments  
+================================================================================
+
+```{r}
+#filtering for responses with overall positive sentiment and creating the datatable.
+comment_data2 %>% 
+  filter(sent>(0)) %>% 
+  arrange(-`Sentiment Score`) %>% 
+  datatable(extensions = 'Buttons', options = list(
+    dom = 'Blfrtip',
+    buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+    lengthMenue = list( c(10, 25, 50, 100, -1), c(10, 25, 50, 100, "All") )
+  )
+)
+```

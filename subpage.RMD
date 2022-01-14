@@ -20,11 +20,11 @@ subpage_env2 <- new.env()
 
 #for loop for creating a plot for each question
 for (q in quest) {
-  # Filter data for product group 
+  # Filter data for question 
   subpage_data2 <- subpage_data %>% 
     filter(Question_num == q)
   
-  # Assign filtered data and product group to subpage_env2 
+  # Assign filtered data and question to subpage_env2 
   assign("subpage_data2", subpage_data2, subpage_env2)
   assign("quest", q, subpage_env2)
   
