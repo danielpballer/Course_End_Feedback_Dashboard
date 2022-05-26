@@ -24,13 +24,10 @@ library(DT)
 
 ```{r Reading in data}
 #update the name of the file containing numerical responses (likert questions)
-num_data = read_csv("SurveyData_USMA-WP_2021_2022-1_Standard_Numerics-IDs+SECs.csv")
+num_data = read_csv("MATH_SurveyData_USMA-WP_2022_2022-2_Standard_Numerics_20220516104559_EM20N2N2K-NO-SECTION-ID.csv")
 
 #update the name of the file containing free text responses
-comment_data = read_csv("SurveyData_USMA-WP_2021_2022-1_Standard_Comments-IDs+SECs.csv") 
-
-#How many standard questions are asked department wide
-standard_quest = 16
+comment_data = read_csv("MATH_SurveyData_USMA-WP_2022_2022-2_Standard_Comments_20220516104559_EM20N2N2K-NO-SECTION-ID.csv") 
 
 #removing non UTF-8 characters from the data
 comment_data = comment_data %>% 
@@ -67,6 +64,17 @@ num_data = num_data %>%
   right_join(.,num_data, by = c("crs_number", "question")) %>% 
   mutate(Question_num = fct_reorder(Question_num,
                                     parse_number(Question_num)))
+
+# #How many standard questions are asked department wide
+standard_quest = num_data %>% 
+  distinct(crs_number, question) %>% 
+  group_by(crs_number) %>% 
+  mutate(num_quest = max(row_number())) %>% 
+  as.data.frame() %>% 
+  ungroup() %>% 
+  filter(num_quest == min(num_quest)) %>% 
+  summarise(min(num_quest)) %>% 
+  pull()
 ```
 
 ```{r adding names to free text questions}

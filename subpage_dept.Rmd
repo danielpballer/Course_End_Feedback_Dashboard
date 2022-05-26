@@ -10,7 +10,7 @@ dept_plot = plot_data2 %>%
   geom_point(aes(x = average, y = ncrs)) +
   geom_vline(xintercept = plot_data2$response)+
   scale_color_manual(values = c("dark red", "dark green"))+
-  labs(title = paste(plot_data2$question[1]), x = "Response", y = "(n) Course Name")+ 
+  labs(title = str_wrap(paste(plot_data2$question[1]), 100), x = "Response", y = "(n) Course Name")+  
   geom_text(aes(x=response-.1, y=5, label=response_descr), 
            size=4, angle=90)+
   theme_bw()+
